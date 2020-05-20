@@ -1,0 +1,228 @@
+
+//RPC访问参数
+//分别是用户名、密码、节点地址以及端口号
+var RPC_USERNAME=''; 
+var RPC_PASSWORD='';  
+var RPC_HOST="127.0.0.1";
+var RPC_PORT=19001;
+
+
+//签发交易的钱包地址，注意换成自己的地址，并确保地址中有一些余额
+var WALLET_ADDRESS='msaAcdtU48dNuifeeomnyXpWVqBdeG4aGu';
+//钱包私钥
+var WALLET_PRIVATE_KEY='cUGYqN8pQ1hTtVdVYA36Huowum6PJgLkcUj1eoXrt84GHdt7wbHx';
+
+
+
+//存证数据，可以换成自己的数据
+var SAVE_DATA='Hello,BitCoin!';
+
+
+//初始化RPC调用对象
+var rpcClient = require('kapitalize')()
+
+//设置访问参数
+rpcClient
+    .auth(RPC_USERNAME, RPC_PASSWORD)
+    .set('host', RPC_HOST)
+    .set({
+        port:RPC_PORT
+    });
+
+//查看测试节点信息
+rpcClient.getInfo(function(err, info) {
+  if (err) return console.log(err);
+  console.log('节点信息:', info);
+});
+
+
+
+//执行存证过程
+DoSaveTransaction();
+
+
+//存证过程实现
+function DoSaveTransaction(){
+    //通过钱包地址获取未花费的交易输出，用来构建存证交易
+    rpcClient.listunspent(6,9999999,[WALLET_ADDRESS],function(errUnspent,array_unspent){
+        if(errUnspent) 
+        return console.log(errUnspent);
+
+        //打印出获取的未花费交易数据
+        console.log('List Unspent:',array_unspent);
+
+        //将待存证数据转换为十六进制格式
+        var hexSaveData=stringToHex(SAVE_DATA);
+
+        //获取unspent数组
+        //交易输入是从获得的unspent列表来获得的
+        var array_tran_in=[];
+        for(var i=0;i<array_unspent.length;i++){
+            //取出unspent数组中的每一行数据
+            var eachUnspent=array_unspent[i];
+            //如果unspent部分的金额大于0，就拿出来构建为交易输入
+            if(eachUnspent.amount>0){
+                array_tran_in[array_tran_in.length]={
+                    "txid":eachUnspent.txid,"vout":eachUnspent.vout};
+                }
+            }
+
+
+        /*构建交易数据
+        交易数据是由协议版本号以及输入和输出部分组成的
+        */
+        //比特币协议版本号
+        var raw_transaction='01000000';
+        //设置输入部分的交易数量
+        raw_transaction+=byteToHex(array_tran_in.length);
+        //加入交易的输入部分
+        for(var j=0;j<array_tran_in.length;j++){
+            //RPC方式获得TxID需要做字节反转
+            raw_transaction+=reverseHex(array_tran_in[j].txid)+uIntToHex(array_tran_in[j].vout);
+        }
+
+
+
+        }
+
+       
+
+
+
+    }
+
+
+
+
+}
+
+
+
+// 示例实现功能
+function doRpcSample(){
+    //获取未使用的交易用于生成新交易
+    client.listunspent(6,9999999,[TEST_ADDRESS],function(err2, array_unspent) {
+      //if (err2) return console.log('ERROR[listunspent]:',err2);
+      //console.log('Unspent:', array_unspent);
+
+      //测试数据定义
+      //var TEST_DATA='Peer-Peer-network is the future!';
+      //console.log('TEST_DATA=',TEST_DATA);
+      
+      //将原始字节字符串转换为用16进制表示
+      //var str_demo_hex=stringToHex(TEST_DATA);
+      //console.log('str_demo_hex=',str_demo_hex);
+      
+      //生成输入交易定义块
+      var min_unspent_amount=MIN_DUST_AMOUNT*1+MIN_TRANSACTION_FEE;
+      var array_transaction_in=[];
+      
+      var sum_amount=0;
+      for(var uu=0;uu<array_unspent.length;uu++){
+          var unspent_record=array_unspent[uu];
+          if(unspent_record.amount>0){
+              sum_amount+=unspent_record.amount*100000000;
+              array_transaction_in[array_transaction_in.length]={"txid":unspent_record.txid,"vout":unspent_record.vout};
+              
+              if( sum_amount > min_unspent_amount )
+                break;
+          }
+      }
+
+      
+      //构建原始交易数据
+      var rawtransaction_hex = '01000000';  // Bitcoin协议版本号，UINT32
+      rawtransaction_hex += byteToHex(array_transaction_in.length) ; //设置输入交易数量
+      for(var kk=0;kk<array_transaction_in.length;kk++){
+          rawtransaction_hex += reverseHex(array_transaction_in[kk].txid)+uIntToHex(array_transaction_in[kk].vout); 
+          rawtransaction_hex += "00ffffffff";   // 签名数据块的长度和序列号, 00表示尚未签名
+      }
+      
+      rawtransaction_hex += byteToHex(2);  //设置输出交易数量
+      
+      //使用op_return对应的备注脚本空间来嵌入自定义数据
+      rawtransaction_hex += "0000000000000000";  
+      rawtransaction_hex += byteToHex(2+str_demo_hex.length/2) + "6a" + byteToHex(str_demo_hex.length/2) +str_demo_hex; 
+      
+      //最后添加一个找零输出交易 
+      var charge_amount = sum_amount - MIN_TRANSACTION_FEE;
+      console.log('sum_amount:', sum_amount);
+      console.log('min_unspent_amount:', min_unspent_amount);
+      console.log('charge_amount:', charge_amount);
+      console.log('uIntToHex(',charge_amount,')=', uIntToHex(charge_amount));
+      
+      rawtransaction_hex += uIntToHex(charge_amount)+"00000000";  //找零金额,UINT64
+      rawtransaction_hex += "1976a914" + TEST_HASH160 +"88ac";  //找零地址为发送者的钱包地址
+      
+      rawtransaction_hex += "00000000"; //锁定时间,缺省设置成0，表示立即执行，是整个交易数据块的结束字段
+
+      console.log('Rawtransaction:', rawtransaction_hex);
+      
+      //签名交易原始数据包
+      client.signrawtransaction(rawtransaction_hex,function(err3, signedtransaction) {
+          if (err3) return console.log('ERROR[signrawtransaction]:',err3);
+          console.log('Signedtransaction:', signedtransaction);
+          
+          if (!signedtransaction.complete) return console.log('signrawtransaction failed');
+          
+          var signedtransaction_hex_str=signedtransaction.hex;
+          console.log('signedtransaction_hex_str:', signedtransaction_hex_str);
+          
+          //广播已签名的交易数据包
+          client.sendrawtransaction(signedtransaction_hex_str,false,function(err4, sended){
+              //注意第二个参数缺省为false,如果设为true则指Allow high fees to force it to spend，
+              //会强制发送交易并将in与out金额差额部分作为矿工费用(谨慎!)
+              if (err4) return console.log('ERROR[sendrawtransaction]:',err4);
+              console.log('Sended TX:', sended);
+          });
+      });
+    });
+}
+
+//1字节整数转换成16进制字符串
+function byteToHex(val){
+    var resultStr='';
+    var tmpstr=parseInt(val%256).toString(16); 
+    resultStr += tmpstr.length==1? '0'+tmpstr : tmpstr;  
+    
+    return resultStr;
+}
+
+//将HEX字符串反序输出
+function reverseHex(old){
+    var array_splited=old.match(/.{2}|.+$/g);
+    var reversed='';
+    for(var kk=array_splited.length-1;kk>=0;kk--){
+        reversed += array_splited[kk];
+    }
+    return reversed;
+}
+//32位无符号整数变成16进制，并按翻转字节序
+function uIntToHex(val){
+    var resultStr='';
+    var tmpstr=parseInt(val%256).toString(16); 
+    resultStr += tmpstr.length==1? '0'+tmpstr : tmpstr;  
+    
+    tmpstr=parseInt((val%65536)/256).toString(16); 
+    resultStr += tmpstr.length==1? '0'+tmpstr : tmpstr;  
+    
+    tmpstr=parseInt(parseInt(val/65536)%256).toString(16); 
+    resultStr += tmpstr.length==1? '0'+tmpstr : tmpstr;  
+    
+    tmpstr=parseInt(parseInt(val/65536)/256).toString(16); 
+    resultStr += tmpstr.length==1? '0'+tmpstr : tmpstr;  
+    
+    return resultStr;
+}
+
+//Ascii/Unicode字符串转换成16进制表示
+function stringToHex(str){
+    var val="";
+    for(var i = 0; i < str.length; i++){
+        var tmpstr=str.charCodeAt(i).toString(16);  //Unicode
+        val += tmpstr.length==1? '0'+tmpstr : tmpstr;  
+    }
+    return val;
+}
+
+
