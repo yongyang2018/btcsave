@@ -101,7 +101,7 @@ function DoSaveTransaction(){
 // 示例实现功能
 function doRpcSample(){
     //获取未使用的交易用于生成新交易
-    client.listunspent(6,9999999,[TEST_ADDRESS],function(err2, array_unspent) {
+    rpcClient.listunspent(6,9999999,[TEST_ADDRESS],function(err2, array_unspent) {
       //if (err2) return console.log('ERROR[listunspent]:',err2);
       //console.log('Unspent:', array_unspent);
 
@@ -159,7 +159,7 @@ function doRpcSample(){
       console.log('Rawtransaction:', rawtransaction_hex);
       
       //签名交易原始数据包
-      client.signrawtransaction(rawtransaction_hex,function(err3, signedtransaction) {
+      rpcClient.signrawtransaction(rawtransaction_hex,function(err3, signedtransaction) {
           if (err3) return console.log('ERROR[signrawtransaction]:',err3);
           console.log('Signedtransaction:', signedtransaction);
           
@@ -169,7 +169,7 @@ function doRpcSample(){
           console.log('signedtransaction_hex_str:', signedtransaction_hex_str);
           
           //广播已签名的交易数据包
-          client.sendrawtransaction(signedtransaction_hex_str,false,function(err4, sended){
+          rpcClient.sendrawtransaction(signedtransaction_hex_str,false,function(err4, sended){
               //注意第二个参数缺省为false,如果设为true则指Allow high fees to force it to spend，
               //会强制发送交易并将in与out金额差额部分作为矿工费用(谨慎!)
               if (err4) return console.log('ERROR[sendrawtransaction]:',err4);
